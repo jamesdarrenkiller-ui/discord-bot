@@ -1,12 +1,13 @@
 {
   "name": "multipurpose-discord-bot",
-  "version": "1.0.0",
-  "description": "Multipurpose Discord bot with moderation, utility and fun commands.",
+  "version": "2.0.0",
+  "description": "Modular multipurpose Discord bot with moderation, utility, economy and fun features.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "deploy": "node src/deploy.js"
   },
-  "keywords": ["discord", "bot", "discordjs", "moderation"],
+  "keywords": ["discord", "bot", "discordjs", "moderation", "economy", "utility"],
   "license": "MIT",
   "dependencies": {
     "discord.js": "^14.25.1",
