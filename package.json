@@ -1,10 +1,11 @@
 {
   "name": "multipurpose-discord-bot",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Modular all-in-one Discord server management bot.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "prestart": "node src/deploy.js",
     "deploy": "node src/deploy.js",
     "dashboard": "node src/dashboard/server.js"
   },
