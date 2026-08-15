@@ -4,6 +4,7 @@ const { token } = require('./src/config');
 const { loadCommands } = require('./src/handlers/commandHandler');
 const interactionHandler = require('./src/handlers/interactionHandler');
 const { registerEvents } = require('./src/handlers/eventHandler');
+const { setupMusic } = require('./src/music/player');
 
 if (!token) throw new Error('DISCORD_TOKEN is missing. Add it to .env.');
 
@@ -13,6 +14,7 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
@@ -21,7 +23,10 @@ loadCommands(client);
 registerEvents(client);
 client.on('interactionCreate', interactionHandler);
 
-client.login(token).catch(error => {
-  console.error('Failed to log in to Discord:', error);
+(async () => {
+  await setupMusic(client);
+  await client.login(token);
+})().catch(error => {
+  console.error('Failed to start bot:', error);
   process.exit(1);
 });
