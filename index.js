@@ -10,19 +10,14 @@ const { setupMusic } = require('./src/music/player');
 if (!token) throw new Error('DISCORD_TOKEN is missing. Add it to .env.');
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates],
 });
 
 client.commands = new Collection();
 loadCommands(client);
 registerEvents(client);
 client.on('interactionCreate', interactionHandler);
+global.__discordClient = client;
 
 (async () => {
   await connectDatabase();
