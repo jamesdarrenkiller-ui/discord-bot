@@ -1,1 +1,15 @@
-{"name": "discord-bot","version": "1.0.0","description": "A Discord bot using discord.js","main": "index.js","scripts": {"test": "echo 'Error: no test specified' && exit 1"},"keywords": [],"author": "","license": "ISC","dependencies": {"discord.js": "^13.0.0"}}
+{
+  "name": "multipurpose-discord-bot",
+  "version": "1.0.0",
+  "description": "Multipurpose Discord bot with moderation, utility and fun commands.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": ["discord", "bot", "discordjs", "moderation"],
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^16.4.7"
+  }
+}
