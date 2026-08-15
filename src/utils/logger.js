@@ -1,8 +1,9 @@
 const { EmbedBuilder } = require('discord.js');
-const { getGuild } = require('./database');
+const { getGuild } = require('../database/repository');
 
 async function log(guild, title, description) {
-  const channelId = getGuild(guild.id).logChannel;
+  const cfg = await getGuild(guild.id);
+  const channelId = cfg.logChannelId;
   if (!channelId) return;
   const channel = guild.channels.cache.get(channelId);
   if (!channel) return;
