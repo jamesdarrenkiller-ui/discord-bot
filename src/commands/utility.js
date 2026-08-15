@@ -1,63 +1,23 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { requirePermission } = require('../utils/permissions');
+const { getUser } = require('../database/repository');
 
 module.exports = [
-  {
-    data: new SlashCommandBuilder().setName('help').setDescription('Show all commands'),
-    async execute(interaction) {
-      const embed = new EmbedBuilder().setTitle('🤖 Multipurpose Bot').setDescription('All-in-one Discord server management.')
-        .addFields(
-          { name: '🛡️ Moderation', value: '`/kick` `/ban` `/unban` `/timeout` `/untimeout` `/warn` `/warnings` `/clear` `/lock` `/unlock` `/slowmode`' },
-          { name: '🎫 Support', value: '`/ticket` `/close`' },
-          { name: '⚙️ Server', value: '`/setlog` `/setwelcome` `/automod`' },
-          { name: '💰 Economy', value: '`/balance` `/daily` `/work` `/deposit` `/withdraw` `/pay` `/leaderboard`' },
-          { name: '🎉 Fun', value: '`/8ball` `/roll` `/giveaway`' },
-          { name: '🔧 Utility', value: '`/ping` `/serverinfo` `/userinfo` `/avatar` `/say`' },
-        );
-      return interaction.reply({ embeds: [embed] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName('ping').setDescription('Check bot latency'),
-    async execute(interaction) { return interaction.reply(`🏓 Pong! ${interaction.client.ws.ping}ms`); },
-  },
-  {
-    data: new SlashCommandBuilder().setName('serverinfo').setDescription('Show server information'),
-    async execute(interaction) {
-      const g = interaction.guild;
-      const embed = new EmbedBuilder().setTitle(`${g.name} Information`).addFields(
-        { name: 'Owner', value: `<@${g.ownerId}>`, inline: true },
-        { name: 'Members', value: `${g.memberCount}`, inline: true },
-        { name: 'Channels', value: `${g.channels.cache.size}`, inline: true },
-        { name: 'Created', value: `<t:${Math.floor(g.createdTimestamp / 1000)}:D>`, inline: true },
-      );
-      return interaction.reply({ embeds: [embed] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName('userinfo').setDescription('Show user information').addUserOption(o => o.setName('user').setDescription('User').setRequired(false)),
-    async execute(interaction) {
-      const u = interaction.options.getUser('user') || interaction.user;
-      const embed = new EmbedBuilder().setTitle(u.tag).setThumbnail(u.displayAvatarURL()).addFields(
-        { name: 'ID', value: u.id, inline: true },
-        { name: 'Created', value: `<t:${Math.floor(u.createdTimestamp / 1000)}:D>`, inline: true },
-      );
-      return interaction.reply({ embeds: [embed] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName('avatar').setDescription('Show an avatar').addUserOption(o => o.setName('user').setDescription('User').setRequired(false)),
-    async execute(interaction) {
-      const u = interaction.options.getUser('user') || interaction.user;
-      return interaction.reply(u.displayAvatarURL({ size: 1024, extension: 'png' }));
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName('say').setDescription('Send a message').addStringOption(o => o.setName('message').setDescription('Message').setRequired(true)),
-    async execute(interaction) {
-      const { PermissionsBitField } = require('discord.js');
-      const { requirePermission } = require('../utils/permissions');
-      if (!await requirePermission(interaction, PermissionsBitField.Flags.ManageMessages, 'Manage Messages')) return;
-      return interaction.reply({ content: interaction.options.getString('message'), allowedMentions: { parse: [] } });
-    },
-  },
+  { data:new SlashCommandBuilder().setName('help').setDescription('Show all commands'), async execute(i){return i.reply({embeds:[new EmbedBuilder().setTitle('🤖 All-in-One Bot').setDescription('Server management, security, economy, music, tickets, AI and more.').addFields(
+    {name:'🛡️ Moderation',value:'`/kick` `/ban` `/unban` `/timeout` `/untimeout` `/warn` `/warnings` `/clear` `/lock` `/unlock` `/slowmode`'},
+    {name:'🔐 Security/Admin',value:'`/automod` `/antilink` `/anticaps` `/antiraid` `/antinuke` `/setlog` `/setwelcome` `/setgoodbye` `/autorole`'},
+    {name:'🎫 Tickets',value:'`/ticket create` `/ticket-close`'}, {name:'💰 Economy',value:'`/balance` `/daily` `/weekly` `/work` `/beg` `/deposit` `/withdraw` `/pay` `/leaderboard`'},
+    {name:'🎮 Fun',value:'`/8ball` `/coinflip` `/dice` `/rps`'}, {name:'🎵 Music',value:'`/play` `/pause` `/resume` `/skip` `/stop` `/queue` `/volume` `/loop` `/shuffle` `/nowplaying`'},
+    {name:'🧠 AI',value:'`/ai`'}, {name:'🔧 Utility',value:'`/ping` `/serverinfo` `/userinfo` `/avatar` `/botinfo` `/roleinfo` `/channelinfo` `/uptime` `/afk` `/rank` `/levels`'}
+  )]});} },
+  { data:new SlashCommandBuilder().setName('ping').setDescription('Check bot latency'), async execute(i){return i.reply(`🏓 Pong! ${i.client.ws.ping}ms`);} },
+  { data:new SlashCommandBuilder().setName('uptime').setDescription('Show bot uptime'), async execute(i){return i.reply(`⏱️ Uptime: **${Math.floor(i.client.uptime/86400000)}d ${Math.floor(i.client.uptime/3600000)%24}h ${Math.floor(i.client.uptime/60000)%60}m**`);} },
+  { data:new SlashCommandBuilder().setName('serverinfo').setDescription('Show server information'), async execute(i){const g=i.guild;return i.reply({embeds:[new EmbedBuilder().setTitle(`${g.name} Information`).addFields({name:'Owner',value:`<@${g.ownerId}>`,inline:true},{name:'Members',value:`${g.memberCount}`,inline:true},{name:'Bots',value:`${g.members.cache.filter(m=>m.user.bot).size}`,inline:true},{name:'Channels',value:`${g.channels.cache.size}`,inline:true},{name:'Roles',value:`${g.roles.cache.size}`,inline:true},{name:'Created',value:`<t:${Math.floor(g.createdTimestamp/1000)}:D>`,inline:true})]});} },
+  { data:new SlashCommandBuilder().setName('userinfo').setDescription('Show user information').addUserOption(o=>o.setName('user').setDescription('User').setRequired(false)), async execute(i){const u=i.options.getUser('user')||i.user;return i.reply({embeds:[new EmbedBuilder().setTitle(u.tag).setThumbnail(u.displayAvatarURL()).addFields({name:'ID',value:u.id,inline:true},{name:'Created',value:`<t:${Math.floor(u.createdTimestamp/1000)}:D>`,inline:true})]});} },
+  { data:new SlashCommandBuilder().setName('avatar').setDescription('Show an avatar').addUserOption(o=>o.setName('user').setDescription('User').setRequired(false)), async execute(i){const u=i.options.getUser('user')||i.user;return i.reply(u.displayAvatarURL({size:1024,extension:'png'}));} },
+  { data:new SlashCommandBuilder().setName('botinfo').setDescription('Show bot information'), async execute(i){return i.reply(`🤖 **${i.client.user.tag}**\nServers: **${i.client.guilds.cache.size}**\nUsers cached: **${i.client.users.cache.size}**\nPing: **${i.client.ws.ping}ms**`);} },
+  { data:new SlashCommandBuilder().setName('roleinfo').setDescription('Show role information').addRoleOption(o=>o.setName('role').setDescription('Role').setRequired(true)), async execute(i){const r=i.options.getRole('role',true);return i.reply(`🎭 **${r.name}**\nID: ${r.id}\nMembers: **${r.members.size}**\nPosition: **${r.position}**`);} },
+  { data:new SlashCommandBuilder().setName('channelinfo').setDescription('Show channel information').addChannelOption(o=>o.setName('channel').setDescription('Channel').setRequired(false)), async execute(i){const c=i.options.getChannel('channel')||i.channel;return i.reply(`📺 **${c.name}**\nID: ${c.id}\nType: **${c.type}**`);} },
+  { data:new SlashCommandBuilder().setName('say').setDescription('Send a message').addStringOption(o=>o.setName('message').setDescription('Message').setRequired(true)), async execute(i){if(!await requirePermission(i,PermissionsBitField.Flags.ManageMessages,'Manage Messages'))return;i.reply({content:i.options.getString('message'),allowedMentions:{parse:[]}});} },
+  { data:new SlashCommandBuilder().setName('afk').setDescription('Set or clear your AFK status').addStringOption(o=>o.setName('reason').setDescription('AFK reason').setRequired(false)), async execute(i){const u=await getUser(i.user.id);u.afk=i.options.getString('reason')||'';await u.save();return i.reply(u.afk?`💤 AFK set: **${u.afk}**`:'👋 AFK cleared.');} },
 ];
