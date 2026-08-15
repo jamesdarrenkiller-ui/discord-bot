@@ -8,7 +8,7 @@
     "deploy": "node src/deploy.js"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=18.0.0"
   },
   "keywords": ["discord", "bot", "discordjs", "moderation", "economy", "utility", "music"],
   "license": "MIT",
