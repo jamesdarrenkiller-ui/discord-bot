@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { token } = require('./src/config');
+const { connectDatabase } = require('./src/database/mongodb');
 const { loadCommands } = require('./src/handlers/commandHandler');
 const interactionHandler = require('./src/handlers/interactionHandler');
 const { registerEvents } = require('./src/handlers/eventHandler');
@@ -24,6 +25,7 @@ registerEvents(client);
 client.on('interactionCreate', interactionHandler);
 
 (async () => {
+  await connectDatabase();
   await setupMusic(client);
   await client.login(token);
 })().catch(error => {
