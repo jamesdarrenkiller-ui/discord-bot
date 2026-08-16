@@ -1,9 +1,20 @@
 const { Player } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
+const { DefaultExtractors, SpotifyExtractor } = require('@discord-player/extractor');
+const { spotifyClientId, spotifyClientSecret } = require('../config');
 
 async function setupMusic(client) {
   const player = new Player(client);
-  await player.extractors.loadMulti(DefaultExtractors);
+
+  // Load every default extractor except Spotify, which is registered
+  // separately so the supplied Spotify API credentials are used.
+  await player.extractors.loadMulti(
+    DefaultExtractors.filter((Extractor) => Extractor !== SpotifyExtractor),
+  );
+
+  await player.extractors.register(SpotifyExtractor, {
+    clientId: spotifyClientId || null,
+    clientSecret: spotifyClientSecret || null,
+  });
 
   player.events.on('playerStart', (queue, track) => {
     const channel = queue.metadata?.channel;
