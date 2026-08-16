@@ -101,6 +101,40 @@ module.exports = [
     },
   },
   {
+    data: new SlashCommandBuilder()
+      .setName('loop')
+      .setDescription('Set the music loop mode')
+      .addStringOption(o => o
+        .setName('mode')
+        .setDescription('Loop mode')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Off', value: '0' },
+          { name: 'Track', value: '1' },
+          { name: 'Queue', value: '2' },
+        )),
+    async execute(interaction) {
+      const queue = interaction.client.player.nodes.get(interaction.guildId);
+      if (!queue?.currentTrack) return interaction.reply({ content: '❌ Nothing is playing.', ephemeral: true });
+      if (!sameChannel(interaction, queue)) return interaction.reply({ content: '❌ Join my voice channel first.', ephemeral: true });
+      const mode = Number(interaction.options.getString('mode', true));
+      queue.setRepeatMode(mode);
+      const names = { 0: 'Off', 1: 'Track', 2: 'Queue' };
+      return interaction.reply(`🔁 Loop mode: **${names[mode]}**.`);
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('shuffle').setDescription('Shuffle the music queue'),
+    async execute(interaction) {
+      const queue = interaction.client.player.nodes.get(interaction.guildId);
+      if (!queue?.currentTrack) return interaction.reply({ content: '❌ Nothing is playing.', ephemeral: true });
+      if (!sameChannel(interaction, queue)) return interaction.reply({ content: '❌ Join my voice channel first.', ephemeral: true });
+      if (queue.tracks.size < 2) return interaction.reply({ content: '❌ You need at least 2 queued tracks to shuffle.', ephemeral: true });
+      queue.tracks.shuffle();
+      return interaction.reply(`🔀 Shuffled **${queue.tracks.size}** queued tracks.`);
+    },
+  },
+  {
     data: new SlashCommandBuilder().setName('nowplaying').setDescription('Show the current song'),
     async execute(interaction) {
       const queue = interaction.client.player.nodes.get(interaction.guildId);
