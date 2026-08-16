@@ -7,6 +7,8 @@ module.exports = {
   aiApiKey: process.env.AI_API_KEY,
   aiBaseUrl: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
   aiModel: process.env.AI_MODEL || 'gpt-4o-mini',
+  spotifyClientId: process.env.SPOTIFY_CLIENT_ID,
+  spotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET,
   dashboardPort: Number(process.env.DASHBOARD_PORT || 3000),
   dashboardSecret: process.env.DASHBOARD_SECRET,
 };
