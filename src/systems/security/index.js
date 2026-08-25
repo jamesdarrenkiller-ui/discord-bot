@@ -1,6 +1,7 @@
 const { AuditLogEvent, PermissionsBitField } = require('discord.js');
 const { getGuild } = require('../../database/repository');
 const { log } = require('../../utils/logger');
+const { hasSecurityBypass } = require('../../utils/bypass');
 
 async function checkMemberAdd(member) {
   const cfg = await getGuild(member.guild.id);
@@ -18,8 +19,9 @@ async function checkAudit(guild, type, threshold = 3) {
   if (!entries) return;
   const now = Date.now();
   const recent = entries.entries.filter(e => now - e.createdTimestamp < 60000);
-  if (recent.length >= threshold) {
-    await log(guild, '🚨 Anti-Nuke Alert', `${recent.length} rapid audit actions detected for ${type}.`);
+  const suspicious = recent.filter(e => !hasSecurityBypass(guild, e.executor?.id));
+  if (suspicious.length >= threshold) {
+    await log(guild, '🚨 Anti-Nuke Alert', `${suspicious.length} rapid audit actions detected for ${type}.`);
   }
 }
 
