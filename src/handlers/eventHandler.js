@@ -3,7 +3,13 @@ const { awardMessageXp } = require('../systems/leveling');
 const { memberJoined, memberLeft } = require('../systems/welcome');
 const { checkMemberAdd } = require('../systems/security');
 const { log } = require('../utils/logger');
-const { prefix } = require('../config');
+const { prefix, botOwnerId } = require('../config');
+const { getGuild } = require('../database/repository');
+
+async function isNoPrefix(message) {
+  const cfg = await getGuild(message.guild.id);
+  return cfg.noPrefixUsers.includes(message.author.id);
+}
 
 function registerEvents(client) {
   client.once('ready', () => {
@@ -28,31 +34,52 @@ function registerEvents(client) {
     await handleMessage(message);
     await awardMessageXp(message);
 
-    if (!message.content.startsWith(prefix)) return;
+    const noPrefix = await isNoPrefix(message);
+    const raw = message.content.trim();
+    const usesPrefix = raw.startsWith(prefix);
+    if (!usesPrefix && !noPrefix) return;
 
-    const args = message.content.slice(prefix.length).trim().split(/\s+/);
+    const body = usesPrefix ? raw.slice(prefix.length).trim() : raw;
+    const args = body.split(/\s+/);
     const commandName = (args.shift() || '').toLowerCase();
     if (!commandName) return;
 
     if (commandName === 'help' || commandName === 'h') {
       return message.reply([
-        '🤖 **All-in-One Bot — Prefix Help**',
-        '',
-        `Prefix: **${prefix}**`,
-        '',
+        '🤖 **All-in-One Bot — Prefix Help**', '',
+        `Prefix: **${prefix}**`, '',
         '🛡️ **Moderation** — `ban`, `kick`, `timeout`, `warn`, `warnings`, `clear`, `lock`, `unlock`',
         '💰 **Economy** — `balance`, `daily`, `weekly`, `work`, `beg`, `pay`, `leaderboard`',
         '🎮 **Fun** — `8ball`, `coinflip`, `dice`, `rps`',
-        '🎵 **Music** — `play`, `pause`, `resume`, `skip`, `stop`, `queue`, `volume`',
-        '🎫 **Tickets** — `ticket`',
-        '🔧 **Utility** — `ping`, `serverinfo`, `userinfo`, `avatar`, `botinfo`, `uptime`',
-        '🧠 **AI** — `ai`',
-        '',
-        'Slash commands are also available with `/help`.'
+        '🎵 **Music** — `play`, `pause`, `resume`, `skip`, `stop`, `queue`, `volume`, `loop`, `shuffle`, `mode`, `modes`',
+        '🎫 **Tickets** — `ticket`', '🔧 **Utility** — `ping`, `serverinfo`, `userinfo`, `avatar`, `botinfo`, `uptime`',
+        '🧠 **AI** — `ai`', '', 'Slash commands are also available.'
       ].join('\n'));
     }
 
     if (commandName === 'ping') return message.reply(`🏓 Pong! ${client.ws.ping}ms`);
+    if (commandName === 'prefix') return message.reply(`⚙️ My prefix is **${prefix}**`);
+
+    if (commandName === 'noprefix') {
+      if (message.author.id !== botOwnerId) return message.reply('❌ Only the bot owner can use this command.');
+      const sub = (args.shift() || '').toLowerCase();
+      const user = message.mentions.users.first();
+      if (!['add', 'remove', 'list'].includes(sub)) return message.reply(`Usage: ${prefix}noprefix <add|remove|list> @user`);
+      const cfg = await getGuild(message.guild.id);
+      if (sub === 'list') return message.reply(cfg.noPrefixUsers.length ? `🚫 No-prefix users: ${cfg.noPrefixUsers.map(id => `<@${id}>`).join(', ')}` : '🚫 No no-prefix users configured.');
+      if (!user) return message.reply(`Usage: ${prefix}noprefix ${sub} @user`);
+      if (user.bot) return message.reply('❌ Bots cannot be added to no-prefix.');
+      if (sub === 'add') {
+        if (!cfg.noPrefixUsers.includes(user.id)) cfg.noPrefixUsers.push(user.id);
+        await cfg.save();
+        return message.reply(`✅ ${user} can now use commands without the prefix.`);
+      }
+      cfg.noPrefixUsers = cfg.noPrefixUsers.filter(id => id !== user.id);
+      await cfg.save();
+      return message.reply(`✅ ${user} no-prefix access removed.`);
+    }
+
+    // No-prefix access only bypasses the prefix requirement; it does not bypass command permissions.
     if (commandName === 'prefix') return message.reply(`⚙️ My prefix is **${prefix}**`);
   });
 }
