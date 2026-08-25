@@ -6,7 +6,7 @@ async function awardMessageXp(message) {
   if (!message.guild || message.author.bot) return;
   const cfg = await getGuild(message.guild.id);
   if (!cfg.xpEnabled) return;
-  const user = await getUser(message.author.id);
+  const user = await getUser(message.guild.id, message.author.id);
   const before = levelForXp(user.xp);
   user.xp += Math.max(1, cfg.xpPerMessage);
   const after = levelForXp(user.xp);
