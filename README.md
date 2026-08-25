@@ -1,71 +1,78 @@
 # 🤖 All-in-One Discord Bot
 
-A modular Discord server-management ecosystem built with **Node.js, discord.js v14 and MongoDB**.
+A modular, multi-server Discord bot built with **Node.js, discord.js v14 and MongoDB**.
 
-## 🚀 Core Modules
+## Features
 
-- 🛡️ Moderation: ban, kick, timeout, warnings, purge, lock/unlock, slowmode
-- 🤖 AutoMod: anti-link, anti-caps, spam/raid protection foundation
-- 🔐 Security: anti-raid and anti-nuke detection foundation
-- 📋 Logging: moderation, joins/leaves and AutoMod events
-- 🎫 Tickets: support/report/partnership ticket creation and closing
-- 💰 Economy: balance, daily, weekly, work, beg, deposit, withdraw, pay, leaderboard
-- 🎮 Fun: 8ball, coinflip, dice, RPS
-- 🎵 Music: Discord Player module and voice-state support
-- 👋 Welcome: welcome/goodbye channels and autorole
-- 📈 Leveling: MongoDB XP and level-up engine
-- 🎉 Giveaways: start, end and reroll
-- 🧠 AI: provider-agnostic `/ai` server assistant
-- ⚙️ Admin configuration: logs, welcome, AutoMod, security and autorole
-- 🌐 Dashboard API: authenticated server configuration endpoints
+- 🛡️ **Moderation** — ban, kick, timeout, untimeout, warn, warnings, clear, lock/unlock, slowmode
+- 🤖 **AutoMod** — anti-link, anti-caps, anti-spam foundation
+- 🚨 **Security** — anti-raid and anti-nuke alert foundation
+- 📋 **Logging** — joins/leaves, moderation and AutoMod events
+- 🎫 **Tickets** — support/report/partnership tickets, close button
+- 💰 **Economy** — balance, daily, weekly, work, beg, deposit, withdraw, pay, leaderboard
+- 🎮 **Fun** — 8ball, coinflip, dice, RPS
+- 🎵 **Music** — play, pause, resume, skip, stop, queue, volume, loop, shuffle, nowplaying
+- 👋 **Welcome** — welcome/goodbye channels and autorole
+- 📈 **Leveling** — XP and level-up engine
+- 🎉 **Giveaways** — start, end and reroll
+- 🧠 **AI** — configurable AI provider via environment variables
+- ⚙️ **Server configuration** — per-server moderation, security, welcome, logging and economy settings
+- 🌐 **Dashboard API** — authenticated server configuration endpoints
 
-## 📁 Architecture
+## Multi-server data isolation
+
+Every guild has independent configuration and user data. MongoDB documents use `guildId`, and user records have a unique compound index on `{ guildId, userId }`.
+
+That means the same Discord user can have completely different:
+
+- economy balance
+- XP and level
+- warnings
+- server settings
+
+across different servers.
+
+## Project structure
 
 ```text
-bot/
-├── index.js
-├── package.json
-├── .env.example
-├── README.md
-└── src/
-    ├── commands/
-    │   ├── moderation.js
-    │   ├── economy.js
-    │   ├── music.js
-    │   ├── fun.js
-    │   ├── utility.js
-    │   ├── ticket.js
-    │   ├── giveaway.js
-    │   ├── admin.js
-    │   └── ai.js
-    ├── events/
-    ├── handlers/
-    ├── systems/
-    │   ├── automod/
-    │   ├── antinuke/security
-    │   ├── leveling/
-    │   └── welcome/
-    ├── database/
-    │   ├── mongodb.js
-    │   ├── models.js
-    │   └── repository.js
-    ├── services/
-    │   └── ai.js
-    ├── dashboard/
-    ├── music/
-    ├── config.js
-    └── deploy.js
+index.js
+src/
+├── commands/
+│   ├── admin.js
+│   ├── ai.js
+│   ├── economy.js
+│   ├── fun.js
+│   ├── giveaway.js
+│   ├── music.js
+│   ├── moderation.js
+│   ├── ticket.js
+│   └── utility.js
+├── database/
+│   ├── mongodb.js
+│   ├── models.js
+│   └── repository.js
+├── dashboard/
+├── handlers/
+├── music/
+├── services/
+├── systems/
+│   ├── automod/
+│   ├── leveling/
+│   ├── security/
+│   └── welcome/
+├── utils/
+└── deploy.js
 ```
 
-## 🔧 Setup
+## Setup
 
-### 1. Install
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Environment
+### 2. Configure environment
 
 Copy `.env.example` to `.env` and set:
 
@@ -74,47 +81,55 @@ DISCORD_TOKEN=...
 CLIENT_ID=...
 GUILD_ID=...
 MONGODB_URI=mongodb+srv://...
-AI_API_KEY=...
-AI_BASE_URL=https://api.openai.com/v1
-AI_MODEL=gpt-4o-mini
-DASHBOARD_PORT=3000
-DASHBOARD_SECRET=...
 ```
 
-**Never commit `.env`, Discord tokens, MongoDB credentials or AI API keys.**
+Optional AI and dashboard variables are documented in `.env.example`.
+
+**Never commit `.env`, Discord tokens, MongoDB credentials or API keys.**
 
 ### 3. Register slash commands
+
+For a fast development server registration:
 
 ```bash
 npm run deploy
 ```
 
-### 4. Start bot
+To register globally, leave `GUILD_ID` empty.
+
+### 4. Start
 
 ```bash
 npm start
 ```
 
-### 5. Dashboard API
+### 5. Dashboard
 
 ```bash
 npm run dashboard
 ```
 
-The dashboard API uses `Authorization: Bearer <DASHBOARD_SECRET>` for protected configuration routes.
+The protected dashboard endpoints use:
 
-## 🗄️ MongoDB
+```text
+Authorization: Bearer <DASHBOARD_SECRET>
+```
 
-MongoDB stores per-server configuration, users/economy, XP, warnings, tickets and giveaway records. Add your MongoDB connection string through `MONGODB_URI`.
+## Discord permissions
 
-## 🧠 AI
+Give the bot only the permissions it needs for your enabled modules. Moderation, AutoMod, tickets, music and welcome/autorole features each require different Discord permissions and intents.
 
-The bot does not contain a hard-coded AI key. Put your key in `.env` or your hosting provider's secret manager. The AI service uses an OpenAI-compatible `/chat/completions` endpoint and can be configured with `AI_BASE_URL` and `AI_MODEL`.
+## Music
 
-## 🔒 Security
+The project includes `discord-player`, `@discord-player/extractor` and `ffmpeg-static`. `/play` accepts search text and supported media URLs; queue management includes loop and shuffle.
 
-Use the least Discord permissions necessary. Keep dashboard access behind HTTPS and a strong secret. Anti-nuke/raid systems should be tested on a private server before enabling aggressive automatic actions.
+## Production notes
 
-## 📜 License
+- Use MongoDB Atlas or another managed MongoDB service.
+- Store all secrets in the hosting provider's secret manager.
+- Test anti-raid/anti-nuke behavior on a private test server before enabling aggressive automated actions.
+- For production hosting, use a process manager or container platform that restarts the bot on failure.
+
+## License
 
 MIT
