@@ -5,6 +5,8 @@ const GuildSchema = new mongoose.Schema({
   prefix: { type: String, default: '!' },
   adminRoles: { type: [String], default: [] },
   modRoles: { type: [String], default: [] },
+  extraOwners: { type: [String], default: [] },
+  bypassUsers: { type: [String], default: [] },
   welcomeChannelId: String,
   welcomeMessage: { type: String, default: 'Welcome {user} to {server}! 🎉' },
   goodbyeChannelId: String,
