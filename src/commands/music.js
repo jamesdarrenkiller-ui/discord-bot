@@ -1,35 +1,185 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { availableModes, applyMode } = require('../music/effects');
+const { searchTracks, formatDuration, getManager } = require('../music/player');
 
-function voiceChannel(interaction) { return interaction.member?.voice?.channel; }
-function getQueue(interaction) { return interaction.client.player.nodes.get(interaction.guildId); }
-function sameChannel(interaction, queue) {
-  const channel = voiceChannel(interaction);
-  const connection = queue?.channel;
-  return !connection || !channel || connection.id === channel.id;
+function getOrCreatePlayer(manager, guildId, voiceChannelId, textChannelId) {
+  return manager.createPlayer({
+    guildId,
+    voiceChannelId,
+    textChannelId,
+    nodeOptions: { selfDeaf: true, volume: 80 },
+  });
 }
 
-const modeChoices = availableModes().map(mode => ({ name: mode.toUpperCase(), value: mode }));
+function voiceChannel(i) { return i.member?.voice?.channel; }
 
 module.exports = [
   {
-    data: new SlashCommandBuilder().setName('play').setDescription('Play or queue a song').addStringOption(o => o.setName('query').setDescription('Song, artist, playlist or supported URL').setRequired(true)),
+    data: new SlashCommandBuilder().setName('play').setDescription('Play or queue a song')
+      .addStringOption(o => o.setName('query').setDescription('Song, artist, playlist or URL').setRequired(true)),
     async execute(i) {
-      const channel = voiceChannel(i); if (!channel) return i.reply({ content: '❌ Join a voice channel first.', ephemeral: true });
+      const vc = voiceChannel(i);
+      if (!vc) return i.reply({ content: '❌ Join a voice channel first.', ephemeral: true });
+
+      const m = getManager();
+      if (!m) return i.reply({ content: '❌ Music system not ready.', ephemeral: true });
+
       await i.deferReply();
-      try { const { track } = await i.client.player.play(channel, i.options.getString('query', true), { nodeOptions: { metadata: { channel: i.channel } } }); return i.editReply(`🎶 Queued **${track.cleanTitle}**`); }
-      catch (e) { console.error('Play error:', e); return i.editReply('❌ I could not play that track. Check the query/URL and try again.'); }
+      try {
+        const { tracks, playlist } = await searchTracks(i.options.getString('query', true));
+        if (!tracks.length) return i.editReply('❌ No results found.');
+
+        const player = getOrCreatePlayer(m, i.guild.id, vc.id, i.channel.id);
+        await player.connect();
+
+        if (playlist) {
+          player.queue.add(tracks.map(t => ({ ...t, requester: i.user })));
+          if (!player.isPlaying()) await player.play();
+          return i.editReply(`🎶 Queued playlist **${playlist.name}** (${playlist.count} tracks)`);
+        }
+
+        player.queue.add({ ...tracks[0], requester: i.user });
+        if (!player.isPlaying()) await player.play();
+        return i.editReply(`🎶 Queued **${tracks[0].info.title}**`);
+      } catch (e) {
+        console.error('Play error:', e);
+        return i.editReply(`❌ Could not play: ${e.message}`);
+      }
     },
   },
-  { data: new SlashCommandBuilder().setName('skip').setDescription('Skip the current song'), async execute(i) { const q=getQueue(i); if(!q?.isPlaying())return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); q.node.skip(); return i.reply('⏭️ Skipped.'); } },
-  { data: new SlashCommandBuilder().setName('pause').setDescription('Pause music'), async execute(i) { const q=getQueue(i); if(!q?.isPlaying())return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); q.node.pause(); return i.reply('⏸️ Paused.'); } },
-  { data: new SlashCommandBuilder().setName('resume').setDescription('Resume music'), async execute(i) { const q=getQueue(i); if(!q)return i.reply({content:'❌ Nothing is queued.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); q.node.resume(); return i.reply('▶️ Resumed.'); } },
-  { data: new SlashCommandBuilder().setName('stop').setDescription('Stop music and clear queue'), async execute(i) { const q=getQueue(i); if(!q)return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); q.delete(); return i.reply('⏹️ Music stopped and queue cleared.'); } },
-  { data: new SlashCommandBuilder().setName('queue').setDescription('Show current queue'), async execute(i) { const q=getQueue(i); if(!q?.currentTrack)return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); const tracks=q.tracks.toArray().slice(0,10); const lines=tracks.length?tracks.map((t,n)=>`${n+1}. **${t.cleanTitle}**`).join('\n'):'No more songs queued.'; return i.reply({embeds:[new EmbedBuilder().setTitle('🎵 Music Queue').addFields({name:'Now Playing',value:`**${q.currentTrack.cleanTitle}**`},{name:'Up Next',value:lines})]}); } },
-  { data: new SlashCommandBuilder().setName('volume').setDescription('Set music volume').addIntegerOption(o=>o.setName('level').setDescription('1-100').setRequired(true).setMinValue(1).setMaxValue(100)), async execute(i) { const q=getQueue(i); if(!q?.isPlaying())return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); const n=i.options.getInteger('level',true); q.node.setVolume(n); return i.reply(`🔊 Volume set to **${n}%**.`); } },
-  { data: new SlashCommandBuilder().setName('loop').setDescription('Set loop mode').addStringOption(o=>o.setName('mode').setDescription('Loop mode').setRequired(true).addChoices({name:'Off',value:'0'},{name:'Track',value:'1'},{name:'Queue',value:'2'})), async execute(i) { const q=getQueue(i); if(!q?.currentTrack)return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); const n=Number(i.options.getString('mode',true)); q.setRepeatMode(n); return i.reply(`🔁 Loop: **${['Off','Track','Queue'][n]}**.`); } },
-  { data: new SlashCommandBuilder().setName('shuffle').setDescription('Shuffle queue'), async execute(i) { const q=getQueue(i); if(!q?.currentTrack)return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); if(q.tracks.size<2)return i.reply({content:'❌ Need at least 2 queued tracks.',ephemeral:true}); q.tracks.shuffle(); return i.reply(`🔀 Shuffled **${q.tracks.size}** tracks.`); } },
-  { data: new SlashCommandBuilder().setName('nowplaying').setDescription('Show current song'), async execute(i) { const q=getQueue(i); if(!q?.currentTrack)return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); return i.reply(`🎵 Now playing **${q.currentTrack.cleanTitle}**`); } },
-  { data: new SlashCommandBuilder().setName('mode').setDescription('Apply a music sound mode').addStringOption(o=>o.setName('mode').setDescription('Sound preset').setRequired(true).addChoices(...modeChoices)), async execute(i) { const q=getQueue(i); if(!q?.currentTrack)return i.reply({content:'❌ Nothing is playing.',ephemeral:true}); if(!sameChannel(i,q))return i.reply({content:'❌ Join my voice channel first.',ephemeral:true}); const mode=i.options.getString('mode',true); try { applyMode(q,mode); return i.reply(`🎚️ Sound mode: **${mode.toUpperCase()}**.`); } catch(e) { console.error(e); return i.reply({content:'❌ Could not apply that mode.',ephemeral:true}); } } },
-  { data: new SlashCommandBuilder().setName('modes').setDescription('List available music sound modes'), async execute(i) { return i.reply(`🎚️ **Modes:** ${availableModes().map(m=>`\`${m}\``).join(', ')}`); } },
+  {
+    data: new SlashCommandBuilder().setName('skip').setDescription('Skip the current song'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p?.queue?.current) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      await p.skip();
+      return i.reply('⏭️ Skipped.');
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('pause').setDescription('Pause music'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p?.queue?.current) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      await p.pause(true);
+      return i.reply('⏸️ Paused.');
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('resume').setDescription('Resume music'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p) return i.reply({ content: '❌ Nothing queued.', ephemeral: true });
+      await p.pause(false);
+      return i.reply('▶️ Resumed.');
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('stop').setDescription('Stop music and clear queue'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      p.queue.clear();
+      await p.stop();
+      return i.reply('⏹️ Stopped and queue cleared.');
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('queue').setDescription('Show current queue'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p?.queue?.current) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+
+      const current = p.queue.current;
+      const upcoming = p.queue.tracks.toArray().slice(0, 10);
+      const lines = upcoming.length
+        ? upcoming.map((t, n) => `${n + 1}. **${t.info.title}** — ${formatDuration(t.info.duration)}`).join('\n')
+        : 'No more songs queued.';
+
+      const embed = new EmbedBuilder()
+        .setTitle('🎵 Music Queue')
+        .addFields(
+          { name: 'Now Playing', value: `**${current.info.title}** — ${formatDuration(current.info.duration)}` },
+          { name: 'Up Next', value: lines },
+        )
+        .setFooter({ text: `${p.queue.tracks.size} track(s) total` });
+
+      return i.reply({ embeds: [embed] });
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('volume').setDescription('Set volume')
+      .addIntegerOption(o => o.setName('level').setDescription('1-100').setRequired(true).setMinValue(1).setMaxValue(100)),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      const vol = i.options.getInteger('level', true);
+      await p.setVolume(vol);
+      return i.reply(`🔊 Volume set to **${vol}%**.`);
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('loop').setDescription('Set loop mode')
+      .addStringOption(o => o.setName('mode').setDescription('Loop mode').setRequired(true)
+        .addChoices({ name: 'Off', value: 'off' }, { name: 'Track', value: 'track' }, { name: 'Queue', value: 'queue' })),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p?.queue?.current) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      const mode = i.options.getString('mode', true);
+      p.setLoop(mode === 'off' ? 0 : mode === 'track' ? 1 : 2);
+      return i.reply(`🔁 Loop: **${mode.charAt(0).toUpperCase() + mode.slice(1)}**.`);
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('shuffle').setDescription('Shuffle queue'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p?.queue?.current) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      if (p.queue.tracks.size < 2) return i.reply({ content: '❌ Need at least 2 tracks.', ephemeral: true });
+      p.queue.shuffle();
+      return i.reply(`🔀 Shuffled **${p.queue.tracks.size}** tracks.`);
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('nowplaying').setDescription('Show current song'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const p = m.players.get(i.guild.id);
+      if (!p?.queue?.current) return i.reply({ content: '❌ Nothing playing.', ephemeral: true });
+      const t = p.queue.current;
+      const embed = new EmbedBuilder()
+        .setTitle('🎵 Now Playing')
+        .setDescription(`**${t.info.title}**`)
+        .addFields(
+          { name: 'Duration', value: formatDuration(t.info.duration), inline: true },
+          { name: 'Author', value: t.info.author || '?', inline: true },
+        )
+        .setColor(0x57F287);
+      if (t.info.thumbnail) embed.setThumbnail(t.info.thumbnail);
+      if (t.info.uri) embed.setURL(t.info.uri);
+      return i.reply({ embeds: [embed] });
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('node').setDescription('Show Lavalink node status'),
+    async execute(i) {
+      const m = getManager(); if (!m) return i.reply({ content: '❌ Music not ready.', ephemeral: true });
+      const nodes = m.nodeManager.nodes;
+      if (!nodes.size) return i.reply('❌ No Lavalink nodes connected.');
+
+      const lines = nodes.map(n => {
+        const status = n.connected ? '✅' : '❌';
+        return `${status} **${n.id}** — ${n.stats?.players || 0} players, uptime ${Math.floor((n.stats?.uptime || 0) / 1000)}s`;
+      }).join('\n');
+
+      return i.reply({ embeds: [new EmbedBuilder().setTitle('🎵 Lavalink Nodes').setDescription(lines)] });
+    },
+  },
 ];
