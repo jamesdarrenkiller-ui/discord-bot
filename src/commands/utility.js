@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
 const { requirePermission } = require('../utils/permissions');
-const { getUser } = require('../database/repository');
+const { getUser, User } = require('../database/repository');
 
 module.exports = [
   { data:new SlashCommandBuilder().setName('help').setDescription('Show all commands'), async execute(i){return i.reply({embeds:[new EmbedBuilder().setTitle('🤖 All-in-One Bot').setDescription('Server management, security, economy, music, tickets, AI and more.').addFields(
@@ -19,5 +19,5 @@ module.exports = [
   { data:new SlashCommandBuilder().setName('roleinfo').setDescription('Show role information').addRoleOption(o=>o.setName('role').setDescription('Role').setRequired(true)), async execute(i){const r=i.options.getRole('role',true);return i.reply(`🎭 **${r.name}**\nID: ${r.id}\nMembers: **${r.members.size}**\nPosition: **${r.position}**`);} },
   { data:new SlashCommandBuilder().setName('channelinfo').setDescription('Show channel information').addChannelOption(o=>o.setName('channel').setDescription('Channel').setRequired(false)), async execute(i){const c=i.options.getChannel('channel')||i.channel;return i.reply(`📺 **${c.name}**\nID: ${c.id}\nType: **${c.type}**`);} },
   { data:new SlashCommandBuilder().setName('say').setDescription('Send a message').addStringOption(o=>o.setName('message').setDescription('Message').setRequired(true)), async execute(i){if(!await requirePermission(i,PermissionsBitField.Flags.ManageMessages,'Manage Messages'))return;i.reply({content:i.options.getString('message'),allowedMentions:{parse:[]}});} },
-  { data:new SlashCommandBuilder().setName('afk').setDescription('Set or clear your AFK status').addStringOption(o=>o.setName('reason').setDescription('AFK reason').setRequired(false)), async execute(i){const u=await getUser(i.user.id);u.afk=i.options.getString('reason')||'';await u.save();return i.reply(u.afk?`💤 AFK set: **${u.afk}**`:'👋 AFK cleared.');} },
+  { data:new SlashCommandBuilder().setName('afk').setDescription('Set or clear your AFK status').addStringOption(o=>o.setName('reason').setDescription('AFK reason').setRequired(false)), async execute(i){const u=await getUser(i.guild.id,i.user.id);u.afk=i.options.getString('reason')||'';u.afkSince=u.afk?new Date():null;await u.save();return i.reply(u.afk?`💤 AFK set: **${u.afk}**`:'👋 AFK cleared.');} },
 ];

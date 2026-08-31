@@ -1,4 +1,4 @@
-const { Guild, User, Warning, Ticket, Giveaway } = require('./models');
+const { Guild, User, Warning, Ticket, Giveaway, ReactionRole, Reminder, Poll, Tag, StickyMessage, TempRole } = require('./models');
 
 const getGuild = guildId => Guild.findOneAndUpdate(
   { guildId },
@@ -24,6 +24,12 @@ module.exports = {
   Warning,
   Ticket,
   Giveaway,
+  ReactionRole,
+  Reminder,
+  Poll,
+  Tag,
+  StickyMessage,
+  TempRole,
   getGuild,
   getUser,
   addWarning,

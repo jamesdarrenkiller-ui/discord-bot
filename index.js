@@ -6,6 +6,7 @@ const { loadCommands, getCommandPayload } = require('./src/handlers/commandHandl
 const interactionHandler = require('./src/handlers/interactionHandler');
 const { registerEvents } = require('./src/handlers/eventHandler');
 const { setupMusic } = require('./src/music/player');
+const { startScheduler } = require('./src/systems/scheduler');
 
 if (!token) throw new Error('DISCORD_TOKEN is missing. Add it to .env.');
 if (!clientId) throw new Error('CLIENT_ID is missing. Add your Discord Application ID to .env.');
@@ -48,6 +49,7 @@ global.__discordClient = client;
   try {
     await connectDatabase();
     await setupMusic(client);
+    startScheduler(client);
     await registerSlashCommands();
     await client.login(token);
   } catch (error) {
